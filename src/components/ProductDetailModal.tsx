@@ -85,7 +85,7 @@ const ProductDetailModal = ({ product, shopId, isOpen, onClose }) => {
                 {Object.entries(product.specifications).map(([key, value]) => (
                   <div key={key} className="flex justify-between text-sm">
                     <span className="text-gray-600 capitalize">{key.replace('_', ' ')}:</span>
-                    <span className="font-medium">{value}</span>
+                    <span className="font-medium">{String(value)}</span>
                   </div>
                 ))}
               </div>
