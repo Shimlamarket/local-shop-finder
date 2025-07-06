@@ -1,16 +1,21 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
+import { ShoppingCart, Trash2, Plus, Minus, Phone } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useToast } from '@/hooks/use-toast';
+import OrderTimer from '@/components/OrderTimer';
+import ContactShopModal from '@/components/ContactShopModal';
+import { getShopById } from '@/services/shopService';
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, clearCart, getTotalAmount, getOrderHistory } = useCartStore();
   const { toast } = useToast();
+  const [selectedShop, setSelectedShop] = useState(null);
+  const [showContactModal, setShowContactModal] = useState(false);
   const orderHistory = getOrderHistory();
 
   const handlePlaceOrder = () => {
@@ -21,11 +26,11 @@ const Cart = () => {
       items: [...items],
       total: getTotalAmount(),
       timestamp: new Date(),
+      shopId: items[0]?.shopId,
       shopName: items[0]?.shopName || 'Unknown Shop',
       status: 'placed'
     };
 
-    // Add to order history (in real app, this would go to backend)
     localStorage.setItem('orderHistory', JSON.stringify([...orderHistory, order]));
     
     clearCart();
@@ -33,6 +38,25 @@ const Cart = () => {
       title: "Order Placed Successfully!",
       description: "Your order has been placed. You'll receive a confirmation shortly.",
     });
+  };
+
+  const handleContactShop = (order) => {
+    const shop = getShopById(order.shopId);
+    setSelectedShop(shop);
+    setShowContactModal(true);
+  };
+
+  const getOrderStatus = (order) => {
+    const statuses = ['placed', 'accepted', 'rejected'];
+    return statuses[Math.floor(Math.random() * statuses.length)];
+  };
+
+  const getOrderStatusColor = (status) => {
+    switch (status) {
+      case 'accepted': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-yellow-100 text-yellow-800';
+    }
   };
 
   return (
@@ -127,25 +151,52 @@ const Cart = () => {
           <CardContent>
             {orderHistory.length > 0 ? (
               <div className="space-y-4">
-                {orderHistory.map((order) => (
-                  <div key={order.id} className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-medium">{order.shopName}</h4>
-                        <p className="text-sm text-gray-600">
-                          {new Date(order.timestamp).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-green-600">₹{order.total}</p>
-                        <Badge variant="secondary">{order.status}</Badge>
+                {orderHistory.map((order) => {
+                  const orderStatus = getOrderStatus(order);
+                  return (
+                    <div key={order.id} className="space-y-3">
+                      {/* Order Timer for placed orders */}
+                      {orderStatus === 'placed' && (
+                        <OrderTimer 
+                          order={order} 
+                          onContactShop={handleContactShop}
+                        />
+                      )}
+                      
+                      <div className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="font-medium">{order.shopName}</h4>
+                            <p className="text-sm text-gray-600">
+                              {new Date(order.timestamp).toLocaleDateString()} at {new Date(order.timestamp).toLocaleTimeString()}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-green-600">₹{order.total}</p>
+                            <Badge className={getOrderStatusColor(orderStatus)}>
+                              {orderStatus}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-600 mb-2">
+                          {order.items.length} items ordered
+                        </div>
+                        
+                        {orderStatus === 'rejected' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleContactShop(order)}
+                            className="text-red-600 border-red-300"
+                          >
+                            <Phone className="w-4 h-4 mr-1" />
+                            Contact Shop Owner
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {order.items.length} items ordered
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-gray-500 text-center py-4">No previous orders</p>
@@ -153,6 +204,13 @@ const Cart = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Contact Shop Modal */}
+      <ContactShopModal
+        shop={selectedShop}
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+      />
     </div>
   );
 };
